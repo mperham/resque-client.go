@@ -17,13 +17,13 @@ type ClientSpec struct {
 }
 
 type Client struct {
-	spec *ClientSpec
-	conn redis.Client
+  spec *ClientSpec
+  conn redis.Client
 }
 
 const (
-	DefaultLocation    = "localhost:6379"
-	DefaultQueue       = "test_queue"
+  DefaultLocation    = "localhost:6379"
+  DefaultQueue       = "test_queue"
   DefaultWorkerCount = 4
 )
 
@@ -36,18 +36,18 @@ func DefaultSpec() *ClientSpec {
 }
 
 type Job struct {
-	Payload map[string] interface{}
+  Payload map[string] interface{}
 }
 
 func (c Client) Next() *Job {
-	log.Println("Fetching job from", c.spec.Queue)
-	job_data, e := c.conn.Lpop(c.spec.Queue)
+  log.Println("Fetching job from", c.spec.Queue)
+  job_data, e := c.conn.Lpop(c.spec.Queue)
   if e != nil {
     log.Panicln("Unable to fetch job", e)
   }
-	job := new(Job)
+  job := new(Job)
   json.Unmarshal(job_data, &job.Payload)
-	return job
+  return job
 }
 
 func NewClient(cspec *ClientSpec) Client{
@@ -64,14 +64,14 @@ func NewClient(cspec *ClientSpec) Client{
     log.Panicln("Invalid port", cspec.RedisLocation, err)
   }
   spec.Port(i)
-	client, e := redis.NewSynchClientWithSpec(spec)
-	if e != nil {
+  client, e := redis.NewSynchClientWithSpec(spec)
+  if e != nil {
     log.Panicln ("failed to create the client", e);
   }
-	return Client{
-		cspec,
-		client,
-	}
+  return Client{
+    cspec,
+    client,
+  }
 }
 
 func (client *Client) Process() {
@@ -106,7 +106,7 @@ func myProcessor(args map[string] interface{}) {
 
 func main() {
   Register("Job", myProcessor)
-	client := NewClient(nil)
+  client := NewClient(nil)
   for {
     client.Process()
     time.Sleep(1000000000)
