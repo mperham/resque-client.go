@@ -1,12 +1,13 @@
 package main
 
 import (
-  "os"
   "fmt"
   "redis"
   "json"
+  "log"
   "strings"
   "strconv"
+  "time"
 )
 
 type ClientSpec struct {
@@ -39,13 +40,11 @@ type Job struct {
 }
 
 func (c Client) Next() *Job {
-	fmt.Println("Fetching job from", c.spec.Queue)
+	log.Println("Fetching job from", c.spec.Queue)
 	job_data, e := c.conn.Lpop(c.spec.Queue)
   if e != nil {
-    fmt.Println("Unable to fetch job", e)
-    os.Exit(1)
+    log.Panicln("Unable to fetch job", e)
   }
-	fmt.Println(job_data)
 	job := new(Job)
   json.Unmarshal(job_data, &job.Payload)
 	return job
@@ -62,14 +61,12 @@ func NewClient(cspec *ClientSpec) Client{
   spec.Host(strings.Split(cspec.RedisLocation, ":")[0])
   i, err := strconv.Atoi(strings.Split(cspec.RedisLocation, ":")[1])
   if err != nil {
-    fmt.Println("Invalid port", cspec.RedisLocation, err)
-    os.Exit(5)
+    log.Panicln("Invalid port", cspec.RedisLocation, err)
   }
   spec.Port(i)
 	client, e := redis.NewSynchClientWithSpec(spec)
 	if e != nil {
-    fmt.Println ("failed to create the client", e);
-    os.Exit(1)
+    log.Panicln ("failed to create the client", e);
   }
 	return Client{
 		cspec,
@@ -77,8 +74,41 @@ func NewClient(cspec *ClientSpec) Client{
 	}
 }
 
-func main() {
-	client := NewClient(nil)
+func (client *Client) Process() {
   job := client.Next()
-  fmt.Println(job.Payload)
+  if len(job.Payload) == 0 {
+    return
+  }
+  klass := job.Payload["class"]
+  if klass == nil {
+    log.Panicln("No class found in payload", job)
+  }
+  class, _ := klass.(string)
+  function := workerFunctions[class]
+  if function == nil {
+    log.Panicln("No function registered for job", klass)
+  }
+  args := job.Payload["args"]
+  argsArray, _ := args.([] interface {})
+  argsMap := argsArray[0].(map[string] interface {})
+  function(argsMap)
+}
+
+var workerFunctions = make(map[string] func(map[string] interface {}))
+
+func Register(name string, processor func(map[string] interface {})) {
+  workerFunctions[name] = processor
+}
+
+func myProcessor(args map[string] interface{}) {
+  log.Println(args)
+}
+
+func main() {
+  Register("Job", myProcessor)
+	client := NewClient(nil)
+  for {
+    client.Process()
+    time.Sleep(1000000000)
+  }
 }
