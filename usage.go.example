@@ -1,0 +1,36 @@
+package main
+
+import "./resque"
+
+func myProcessor(args map[string] interface{}) {
+  // Do something with your map of arguments
+}
+
+const WORKERS = 4
+
+/*
+ * The main Ruby method to enqueue messages in Resque looks like this:
+ *   Resque.enqueue(Foo, *args)
+ * Resque messages have two keys:
+ *   class is the name of the Ruby class 'Foo',
+ *   args is the array of arguments that follow Foo
+ * This library assumes that args is just a single Hash, like so:
+ *   Resque.enqueue(Foo, :user_id => 1, :name => 'Bar', :tokens => [1,2,3])
+ * You must register a function to handle messages for a given class.
+ * This function will be called with a map like { 'user_id': 1, 'name': 'Bar', 'tokens': [1,2,3] }
+ */
+func main() {
+  // Register myProcessor as the function that handles
+  // messages from the Job class.
+  resque.Register("Job", myProcessor)
+
+  spec := &resque.ClientSpec {
+    "localhost:6379",
+    "test_queue",
+    WORKERS,
+  }
+  client := resque.NewClient(spec)
+  for {
+    client.Process()
+  }
+}
